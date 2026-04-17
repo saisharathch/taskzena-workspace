@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AI Collaborative Task Platform
 
 Production-style full-stack task management SaaS built with **Next.js App Router**, **Node.js route handlers**, **Prisma ORM**, **PostgreSQL on Supabase**, **Supabase Auth**, and **OpenAI-powered task workflows**.
@@ -216,3 +217,7 @@ Use this project to demonstrate:
 - analytics dashboards
 - cursor pagination across task feeds
 - e2e test coverage with Playwright
+=======
+# taskzena-workspace
+Built a modern AI-powered task management platform with workspace analytics, priority tracking, delivery insights, and executive dashboards to help teams plan, monitor, and accelerate execution.
+>>>>>>> 7d94041d679738faabec0a0961690674a596359b
