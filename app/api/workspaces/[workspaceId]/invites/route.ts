@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { canManageWorkspace, requireWorkspaceMembership } from "@/lib/auth/authorization";
 import { jsonError, jsonOk } from "@/lib/http";
+import { publicEnv } from "@/lib/env/public";
 import { sendInviteEmail } from "@/lib/email";
 import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
 import { WorkspaceRole } from "@prisma/client";
@@ -107,7 +108,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
       },
     });
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const appUrl = publicEnv.NEXT_PUBLIC_APP_URL;
     const inviteUrl = `${appUrl}/invite/${invite.token}`;
     const inviterName = user.fullName ?? user.email ?? "A teammate";
 

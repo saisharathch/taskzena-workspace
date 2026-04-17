@@ -84,25 +84,45 @@ How the system works
 6. AI features help summarize tasks and break work into subtasks
 7. Dashboards provide visibility into progress and execution
 
---Local setup
+## Local setup
 
---Install dependencies
-bash -- npm install
+Install dependencies:
 
---Add environment variables
+```bash
+npm install
+```
 
-Create a .env file and add:
+Set up environment variables:
 
+```bash
+cp .env.example .env
+```
+
+Then open `.env` and fill in your real values for:
+
+```env
 DATABASE_URL=
 DIRECT_URL=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
+RESEND_API_KEY=
+EMAIL_FROM=
+NEXT_PUBLIC_APP_URL=
+```
 
-Run database migration --npx prisma migrate dev --name init
+Run the database migration:
 
+```bash
+npx prisma migrate dev --name init
+```
+
+Start the app:
+
+```bash
 npm run dev
+```
 
 Security
 

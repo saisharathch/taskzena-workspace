@@ -3,6 +3,8 @@
  * To use Resend: npm install resend, set RESEND_API_KEY in .env
  */
 
+import { env } from "@/lib/env/server";
+
 type InviteEmailParams = {
   to: string;
   workspaceName: string;
@@ -12,7 +14,7 @@ type InviteEmailParams = {
 };
 
 async function sendViaResend(to: string, subject: string, html: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = env.RESEND_API_KEY;
   if (!apiKey) throw new Error("RESEND_API_KEY not configured.");
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -22,7 +24,7 @@ async function sendViaResend(to: string, subject: string, html: string): Promise
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: process.env.EMAIL_FROM ?? "Relay <noreply@relay.app>",
+      from: env.EMAIL_FROM ?? "Relay <noreply@relay.app>",
       to,
       subject,
       html,
@@ -66,7 +68,7 @@ export async function sendInviteEmail(params: InviteEmailParams): Promise<void> 
 </body>
 </html>`;
 
-  if (process.env.NODE_ENV === "production" && process.env.RESEND_API_KEY) {
+  if (env.NODE_ENV === "production" && env.RESEND_API_KEY) {
     await sendViaResend(to, subject, html);
   } else {
     // Development: log invite link to console

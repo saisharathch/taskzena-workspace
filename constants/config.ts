@@ -1,8 +1,10 @@
+import { publicEnv } from "@/lib/env/public";
+
 // App-wide configuration constants
 
 export const APP_NAME = 'TaskZena';
 export const APP_DESCRIPTION = 'AI-powered task management platform for modern teams';
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+export const APP_URL = publicEnv.NEXT_PUBLIC_APP_URL;
 
 // AI model configuration
 export const AI_MODELS = {
