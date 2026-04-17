@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
-import { canManageWorkspace, requireWorkspaceMembership } from "@/lib/auth/authorization";
-import { jsonError, jsonOk } from "@/lib/http";
+import { requireWorkspaceRole } from "@/lib/auth/authorization";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { WorkspaceRole } from "@prisma/client";
 import { z } from "zod";
 
@@ -19,10 +19,12 @@ export async function PATCH(
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
     const { workspaceId, memberId } = await params;
 
-    const callerMembership = await requireWorkspaceMembership(user.id, workspaceId);
-    if (!canManageWorkspace(callerMembership.role)) {
-      return jsonError("Only owners and admins can change roles.", 403);
-    }
+    const callerMembership = await requireWorkspaceRole(
+      user.id,
+      workspaceId,
+      [WorkspaceRole.OWNER, WorkspaceRole.ADMIN],
+      "Only owners and admins can change roles.",
+    );
 
     const body = updateSchema.safeParse(await request.json());
     if (!body.success) return jsonError("Invalid role.", 400, body.error.flatten());
@@ -41,7 +43,7 @@ export async function PATCH(
 
     return jsonOk(updated);
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to update role.", 500);
+    return jsonErrorFromUnknown(error, "Failed to update role.");
   }
 }
 
@@ -55,10 +57,12 @@ export async function DELETE(
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
     const { workspaceId, memberId } = await params;
 
-    const callerMembership = await requireWorkspaceMembership(user.id, workspaceId);
-    if (!canManageWorkspace(callerMembership.role)) {
-      return jsonError("Only owners and admins can remove members.", 403);
-    }
+    const callerMembership = await requireWorkspaceRole(
+      user.id,
+      workspaceId,
+      [WorkspaceRole.OWNER, WorkspaceRole.ADMIN],
+      "Only owners and admins can remove members.",
+    );
 
     const target = await prisma.workspaceMember.findUnique({ where: { id: memberId } });
     if (!target || target.workspaceId !== workspaceId) return jsonError("Member not found.", 404);
@@ -70,6 +74,6 @@ export async function DELETE(
     await prisma.workspaceMember.delete({ where: { id: memberId } });
     return jsonOk({ removed: true });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to remove member.", 500);
+    return jsonErrorFromUnknown(error, "Failed to remove member.");
   }
 }

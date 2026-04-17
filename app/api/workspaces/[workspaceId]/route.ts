@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
-import { requireWorkspaceMembership } from "@/lib/auth/authorization";
-import { jsonError, jsonOk } from "@/lib/http";
+import { requireWorkspaceRole } from "@/lib/auth/authorization";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
+import { WorkspaceRole } from "@prisma/client";
 
 export async function DELETE(
   _request: Request,
@@ -12,11 +13,7 @@ export async function DELETE(
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
 
     const { workspaceId } = await params;
-    const membership = await requireWorkspaceMembership(user.id, workspaceId);
-
-    if (membership.role !== "OWNER") {
-      return jsonError("Only workspace owners can delete a workspace.", 403);
-    }
+    await requireWorkspaceRole(user.id, workspaceId, [WorkspaceRole.OWNER], "Only workspace owners can delete a workspace.");
 
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
@@ -28,6 +25,6 @@ export async function DELETE(
     await prisma.workspace.delete({ where: { id: workspaceId } });
     return jsonOk({ deleted: true, workspaceName: workspace.name });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to delete workspace.", 500);
+    return jsonErrorFromUnknown(error, "Failed to delete workspace.");
   }
 }

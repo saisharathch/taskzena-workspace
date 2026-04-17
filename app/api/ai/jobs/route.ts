@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { analyzeTask } from "@/lib/ai";
 import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
     return jsonOk({ jobId: job.id, status: "QUEUED" }, { status: 202 });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to queue job.", 500);
+    return jsonErrorFromUnknown(error, "Failed to queue job.");
   }
 }
 
@@ -56,7 +56,7 @@ export async function GET() {
     });
     return jsonOk(jobs);
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to fetch jobs.", 500);
+    return jsonErrorFromUnknown(error, "Failed to fetch jobs.");
   }
 }
 
@@ -71,7 +71,10 @@ async function processJob(jobId: string, title: string, desc?: string) {
   } catch (err) {
     await prisma.aIJob.update({
       where: { id: jobId },
-      data: { status: "FAILED", errorMsg: err instanceof Error ? err.message : "Unknown error" },
+      data: {
+        status: "FAILED",
+        errorMsg: err instanceof Error ? err.message : "AI response could not be processed. Please try again.",
+      },
     });
   }
 }

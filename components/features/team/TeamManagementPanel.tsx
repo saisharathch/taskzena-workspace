@@ -34,7 +34,15 @@ type TeamWorkspacePayload = {
   workspace: { id: string; name: string };
   currentUserId: string;
   callerRole: string;
-  canManage: boolean;
+  permissions: {
+    canDeleteWorkspace: boolean;
+    canInviteMembers: boolean;
+    canManageMembers: boolean;
+    canManageProjects: boolean;
+    canManageSettings: boolean;
+    canManageTasks: boolean;
+    canTransferOwnership: boolean;
+  };
   members: TeamMember[];
   invites: PendingInvite[];
 };
@@ -111,7 +119,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
     fetchWorkspaceMembers(selectedWorkspaceId);
   }, [selectedWorkspaceId]);
 
-  const inviteAllowed = data?.canManage ?? workspaces.some((workspace) => workspace.canManage);
+  const inviteAllowed = data?.permissions.canInviteMembers ?? workspaces.some((workspace) => workspace.canManage);
   const openInvite = () => {
     if (inviteAllowed) setInviteOpen(true);
   };
@@ -198,7 +206,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
           <span className="team-summary-label">Current role</span>
           <strong className="team-summary-value">{data?.callerRole ?? "--"}</strong>
           <p className="team-summary-copy">
-            {data?.canManage ? "You can invite, update, and remove teammates here." : "You currently have view access for this workspace."}
+            {data?.permissions.canManageMembers ? "You can invite, update, and remove teammates here." : "You currently have view access for this workspace."}
           </p>
         </article>
         <article className="team-summary-card team-summary-card--soft">
@@ -249,7 +257,9 @@ export function TeamManagementPanel({ workspaces }: Props) {
                 members={data.members}
                 workspaceId={data.workspace.id}
                 currentUserId={data.currentUserId}
-                canManage={data.canManage}
+                callerRole={data.callerRole}
+                canManage={data.permissions.canManageMembers}
+                canTransferOwnership={data.permissions.canTransferOwnership}
                 onChanged={() => fetchWorkspaceMembers(data.workspace.id)}
               />
             </div>
@@ -261,7 +271,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
                 Invite one or two teammates first so task ownership, workload, and permissions become visible here.
               </p>
               <div className="team-empty-actions">
-                {data.canManage ? (
+                {data.permissions.canInviteMembers ? (
                   <button className="button" type="button" onClick={openInvite}>
                     Invite Teammate
                   </button>
@@ -285,7 +295,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
               <span className="badge">Pending</span>
               <h3 className="settings-card-title team-panel-title">Outstanding invites</h3>
             </div>
-            {data?.canManage ? (
+            {data?.permissions.canInviteMembers ? (
               <button className="button secondary" type="button" onClick={openInvite}>
                 Invite
               </button>
@@ -299,7 +309,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
                 Invite teammates to bring more people into the workspace and start sharing ownership.
               </p>
               <div className="team-empty-actions">
-                {data?.canManage ? (
+                {data?.permissions.canInviteMembers ? (
                   <button className="button" type="button" onClick={openInvite}>
                     Invite Teammate
                   </button>
@@ -344,7 +354,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
         </aside>
       </div>
 
-      {inviteOpen && data?.canManage && data ? (
+      {inviteOpen && data?.permissions.canInviteMembers && data ? (
         <div className="team-modal-backdrop" role="presentation" onClick={() => setInviteOpen(false)}>
           <div
             className="team-modal-card"
@@ -368,6 +378,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
             <InviteMemberForm
               workspaceId={data.workspace.id}
               workspaceName={data.workspace.name}
+              allowOwnerRole={data.permissions.canTransferOwnership}
               onSuccess={async () => {
                 setInviteOpen(false);
                 await fetchWorkspaceMembers(data.workspace.id);

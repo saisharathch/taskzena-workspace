@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
-import { requireWorkspaceMembership } from "@/lib/auth/authorization";
+import { requireWorkspaceRole } from "@/lib/auth/authorization";
 import { getApiUser } from "@/lib/auth/session";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { createProjectSchema } from "@/lib/validation/project";
+import { WorkspaceRole } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -14,7 +15,12 @@ export async function POST(request: Request) {
       return jsonError("Invalid project payload.", 400, payload.error.flatten());
     }
 
-    await requireWorkspaceMembership(user.id, payload.data.workspaceId);
+    await requireWorkspaceRole(
+      user.id,
+      payload.data.workspaceId,
+      [WorkspaceRole.OWNER, WorkspaceRole.ADMIN],
+      "Only owners and admins can create projects.",
+    );
 
     const project = await prisma.project.create({
       data: {
@@ -35,6 +41,6 @@ export async function POST(request: Request) {
 
     return jsonOk(project, { status: 201 });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to create project.", 500);
+    return jsonErrorFromUnknown(error, "Failed to create project.");
   }
 }

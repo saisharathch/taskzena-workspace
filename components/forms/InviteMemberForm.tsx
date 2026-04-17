@@ -6,10 +6,11 @@ import { useRouter } from "next/navigation";
 type Props = {
   workspaceId: string;
   workspaceName: string;
+  allowOwnerRole?: boolean;
   onSuccess?: () => void | Promise<void>;
 };
 
-export function InviteMemberForm({ workspaceId, workspaceName, onSuccess }: Props) {
+export function InviteMemberForm({ workspaceId, workspaceName, allowOwnerRole = false, onSuccess }: Props) {
   const router = useRouter();
   const [email, setEmail]   = useState("");
   const [role, setRole]     = useState("MEMBER");
@@ -73,7 +74,7 @@ export function InviteMemberForm({ workspaceId, workspaceName, onSuccess }: Prop
         >
           <option value="MEMBER">Member</option>
           <option value="ADMIN">Admin</option>
-          <option value="OWNER">Owner</option>
+          {allowOwnerRole ? <option value="OWNER">Owner</option> : null}
         </select>
       </div>
 

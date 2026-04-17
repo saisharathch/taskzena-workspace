@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
-import { canManageWorkspace, requireWorkspaceMembership } from "@/lib/auth/authorization";
-import { jsonError, jsonOk } from "@/lib/http";
+import { getWorkspacePermissions, requireWorkspaceMembership, requireWorkspaceRole } from "@/lib/auth/authorization";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { publicEnv } from "@/lib/env/public";
 import { sendInviteEmail } from "@/lib/email";
 import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
@@ -19,7 +19,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ workspa
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
     const { workspaceId } = await params;
-    await requireWorkspaceMembership(user.id, workspaceId);
+    const membership = await requireWorkspaceMembership(user.id, workspaceId);
+    const permissions = getWorkspacePermissions(membership.role);
+
+    if (!permissions.canManageMembers) {
+      return jsonOk([]);
+    }
 
     const invites = await prisma.workspaceInvite.findMany({
       where: { workspaceId, status: "PENDING" },
@@ -32,7 +37,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ workspa
 
     return jsonOk(invites);
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to list invites.", 500);
+    return jsonErrorFromUnknown(error, "Failed to list invites.");
   }
 }
 
@@ -46,10 +51,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
     const limit = Limiters.invite(workspaceId);
     if (!limit.success) return rateLimitResponse(limit.retryAfterMs);
 
-    const membership = await requireWorkspaceMembership(user.id, workspaceId);
-    if (!canManageWorkspace(membership.role)) {
-      return jsonError("Only owners and admins can invite teammates.", 403);
-    }
+    const membership = await requireWorkspaceRole(
+      user.id,
+      workspaceId,
+      [WorkspaceRole.OWNER, WorkspaceRole.ADMIN],
+      "Only owners and admins can invite teammates.",
+    );
 
     const body = createInviteSchema.safeParse(await request.json());
     if (!body.success) return jsonError("Invalid invite payload.", 400, body.error.flatten());
@@ -122,6 +129,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
 
     return jsonOk({ invite: { id: invite.id, token: invite.token, inviteUrl } }, { status: 201 });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to send invite.", 500);
+    return jsonErrorFromUnknown(error, "Failed to send invite.");
   }
 }

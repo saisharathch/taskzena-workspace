@@ -1,4 +1,5 @@
 import { requireAppUser } from "@/lib/auth/session";
+import { getWorkspacePermissions } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db/prisma";
 import { redirect } from "next/navigation";
 import { MemberTable } from "./MemberTable";
@@ -33,7 +34,7 @@ export default async function WorkspaceSettingsPage({
   });
   if (!workspace) redirect("/dashboard");
 
-  const canManage = ["OWNER", "ADMIN"].includes(membership.role);
+  const permissions = getWorkspacePermissions(membership.role);
 
   return (
     <main className="db-shell">
@@ -76,12 +77,14 @@ export default async function WorkspaceSettingsPage({
                 }))}
                 workspaceId={workspaceId}
                 currentUserId={user.id}
-                canManage={canManage}
+                callerRole={membership.role}
+                canManage={permissions.canManageMembers}
+                canTransferOwnership={permissions.canTransferOwnership}
               />
             </section>
 
             {/* Pending invites */}
-            {workspace.invites.length > 0 && (
+            {permissions.canManageMembers && workspace.invites.length > 0 && (
               <section className="db-section">
                 <div className="db-section-header">
                   <span className="badge">Pending invites ({workspace.invites.length})</span>
@@ -109,10 +112,14 @@ export default async function WorkspaceSettingsPage({
           </div>
 
           {/* Invite form */}
-          {canManage && (
+          {permissions.canInviteMembers && (
             <aside>
               <div className="db-widget">
-                <InviteMemberForm workspaceId={workspaceId} workspaceName={workspace.name} />
+                <InviteMemberForm
+                  workspaceId={workspaceId}
+                  workspaceName={workspace.name}
+                  allowOwnerRole={permissions.canTransferOwnership}
+                />
               </div>
             </aside>
           )}

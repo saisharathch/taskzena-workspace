@@ -16,14 +16,16 @@ type Props = {
   members: Member[];
   workspaceId: string;
   currentUserId: string;
+  callerRole: string;
   canManage: boolean;
+  canTransferOwnership: boolean;
   onChanged?: () => void | Promise<void>;
 };
 
 const ROLES = ["MEMBER", "ADMIN", "OWNER"] as const;
 const dateFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-export function MemberTable({ members, workspaceId, currentUserId, canManage, onChanged }: Props) {
+export function MemberTable({ members, workspaceId, currentUserId, callerRole, canManage, canTransferOwnership, onChanged }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -71,6 +73,8 @@ export function MemberTable({ members, workspaceId, currentUserId, canManage, on
             {members.map((m) => {
               const isSelf = m.userId === currentUserId;
               const isLoading = loading === m.id;
+              const canManageThisMember = canManage && !isSelf && (callerRole === "OWNER" || m.role !== "OWNER");
+              const roleOptions = canTransferOwnership ? ROLES : ROLES.filter((role) => role !== "OWNER");
               return (
                 <tr key={m.id}>
                   <td>
@@ -79,7 +83,7 @@ export function MemberTable({ members, workspaceId, currentUserId, canManage, on
                     {isSelf && <span className="db-overdue-tag" style={{ background: "var(--accent)" }}>You</span>}
                   </td>
                   <td>
-                    {canManage && !isSelf ? (
+                    {canManageThisMember ? (
                       <select
                         className="select"
                         style={{ minHeight: "unset", padding: "0.3rem 2rem 0.3rem 0.6rem", fontSize: "0.85rem" }}
@@ -87,7 +91,7 @@ export function MemberTable({ members, workspaceId, currentUserId, canManage, on
                         onChange={(e) => updateRole(m.id, e.target.value)}
                         disabled={isLoading}
                       >
-                        {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                        {roleOptions.map((r) => <option key={r} value={r}>{r}</option>)}
                       </select>
                     ) : (
                       <span className="pill">{m.role}</span>
@@ -96,7 +100,7 @@ export function MemberTable({ members, workspaceId, currentUserId, canManage, on
                   <td className="table-subtitle">{dateFmt.format(new Date(m.joinedAt))}</td>
                   {canManage && (
                     <td>
-                      {!isSelf && (
+                      {canManageThisMember && (
                         <button
                           className="button secondary"
                           style={{ minHeight: "unset", padding: "0.35rem 0.8rem", fontSize: "0.82rem" }}

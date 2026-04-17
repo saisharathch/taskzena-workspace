@@ -1,6 +1,6 @@
 import { getApiUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { generateProjectInsights } from "@/lib/ai";
 import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -55,6 +55,6 @@ export async function POST() {
     const insights = await generateProjectInsights(simplified);
     return jsonOk({ insights });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to generate insights.", 500);
+    return jsonErrorFromUnknown(error, "Failed to generate insights.");
   }
 }

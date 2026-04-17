@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { requireWorkspaceMembership } from "@/lib/auth/authorization";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 
 export async function POST(
   _request: Request,
@@ -36,6 +36,6 @@ export async function POST(
 
     return jsonOk({ left: true, workspaceName: workspace.name });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to leave workspace.", 500);
+    return jsonErrorFromUnknown(error, "Failed to leave workspace.");
   }
 }

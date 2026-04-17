@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
-import { requireWorkspaceMembership } from "@/lib/auth/authorization";
-import { jsonError, jsonOk } from "@/lib/http";
+import { requireWorkspaceRole, WORKSPACE_MANAGER_ROLES, WORKSPACE_TASK_EDITOR_ROLES } from "@/lib/auth/authorization";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { updateTaskSchema } from "@/lib/validation/task";
 import { notifyTaskAssigned, notifyTaskStatusChanged } from "@/lib/services/notifications";
 
@@ -25,7 +25,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ taskI
       return jsonError("Task not found.", 404);
     }
 
-    await requireWorkspaceMembership(user.id, existingTask.project.workspaceId);
+    await requireWorkspaceRole(
+      user.id,
+      existingTask.project.workspaceId,
+      WORKSPACE_TASK_EDITOR_ROLES,
+      "You do not have permission to update tasks in this workspace.",
+    );
 
     const task = await prisma.task.update({
       where: { id: taskId },
@@ -82,7 +87,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ taskI
   } catch (error) {
     // Re-throw Next.js redirect / not-found errors so they work correctly
     if (error instanceof Error && "digest" in error) throw error;
-    return jsonError(error instanceof Error ? error.message : "Failed to update task.", 500);
+    return jsonErrorFromUnknown(error, "Failed to update task.");
   }
 }
 
@@ -101,7 +106,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ tas
       return jsonError("Task not found.", 404);
     }
 
-    await requireWorkspaceMembership(user.id, existingTask.project.workspaceId);
+    await requireWorkspaceRole(
+      user.id,
+      existingTask.project.workspaceId,
+      WORKSPACE_MANAGER_ROLES,
+      "Only owners and admins can delete tasks.",
+    );
 
     await prisma.task.delete({ where: { id: taskId } });
 
@@ -117,6 +127,6 @@ export async function DELETE(_request: Request, context: { params: Promise<{ tas
     return jsonOk({ deleted: true });
   } catch (error) {
     if (error instanceof Error && "digest" in error) throw error;
-    return jsonError(error instanceof Error ? error.message : "Failed to delete task.", 500);
+    return jsonErrorFromUnknown(error, "Failed to delete task.");
   }
 }

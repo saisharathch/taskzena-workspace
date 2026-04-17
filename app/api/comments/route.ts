@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { requireWorkspaceMembership } from "@/lib/auth/authorization";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { createCommentSchema } from "@/lib/validation/comment";
 import { notifyTaskCommented } from "@/lib/services/notifications";
 
@@ -59,6 +59,6 @@ export async function POST(request: Request) {
 
     return jsonOk(comment, { status: 201 });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to create comment.", 500);
+    return jsonErrorFromUnknown(error, "Failed to create comment.");
   }
 }

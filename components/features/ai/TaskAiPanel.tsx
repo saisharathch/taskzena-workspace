@@ -9,7 +9,7 @@ type TaskAiPanelProps = {
 
 export function TaskAiPanel({ title, description }: TaskAiPanelProps) {
   const [summary, setSummary] = useState("");
-  const [subtasks, setSubtasks] = useState("");
+  const [subtasks, setSubtasks] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<"summary" | "subtasks" | null>(null);
   const payload = { taskTitle: title, taskDescription: description ?? "" };
@@ -74,10 +74,17 @@ export function TaskAiPanel({ title, description }: TaskAiPanelProps) {
         </div>
       ) : null}
 
-      {subtasks ? (
+      {subtasks.length > 0 ? (
         <div className="notice stack-sm">
           <strong>Subtasks</strong>
-          <pre className="ai-output">{subtasks}</pre>
+          <ol className="db-ai-subtasks">
+            {subtasks.map((subtask, index) => (
+              <li key={index} className="db-ai-subtask-item">
+                <span className="db-ai-subtask-num">{index + 1}</span>
+                <span>{subtask}</span>
+              </li>
+            ))}
+          </ol>
         </div>
       ) : null}
     </section>

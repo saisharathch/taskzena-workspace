@@ -1,8 +1,8 @@
 import { TaskPriority, TaskStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
-import { requireWorkspaceMembership } from "@/lib/auth/authorization";
-import { jsonError, jsonOk } from "@/lib/http";
+import { requireWorkspaceRole, WORKSPACE_TASK_EDITOR_ROLES } from "@/lib/auth/authorization";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { createTaskSchema } from "@/lib/validation/task";
 
 export async function GET(request: Request) {
@@ -55,7 +55,7 @@ export async function GET(request: Request) {
 
     return jsonOk({ tasks: items, nextCursor, hasMore });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to fetch tasks.", 500);
+    return jsonErrorFromUnknown(error, "Failed to fetch tasks.");
   }
 }
 
@@ -78,7 +78,12 @@ export async function POST(request: Request) {
       return jsonError("Project not found.", 404);
     }
 
-    await requireWorkspaceMembership(user.id, project.workspaceId);
+    await requireWorkspaceRole(
+      user.id,
+      project.workspaceId,
+      WORKSPACE_TASK_EDITOR_ROLES,
+      "You do not have permission to create tasks in this workspace.",
+    );
 
     const task = await prisma.task.create({
       data: {
@@ -104,6 +109,6 @@ export async function POST(request: Request) {
 
     return jsonOk(task, { status: 201 });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to create task.", 500);
+    return jsonErrorFromUnknown(error, "Failed to create task.");
   }
 }

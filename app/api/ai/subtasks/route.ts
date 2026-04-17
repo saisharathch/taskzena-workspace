@@ -1,5 +1,5 @@
 import { getApiUser } from "@/lib/auth/session";
-import { jsonError, jsonOk } from "@/lib/http";
+import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { generateSubtasks } from "@/lib/ai";
 import { generateSubtasksSchema } from "@/lib/validation/ai";
 import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
@@ -19,6 +19,6 @@ export async function POST(request: Request) {
     const subtasks = await generateSubtasks(payload.data.taskTitle, payload.data.taskDescription);
     return jsonOk({ subtasks });
   } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "Failed to generate subtasks.", 500);
+    return jsonErrorFromUnknown(error, "Failed to generate subtasks.");
   }
 }
