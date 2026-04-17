@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { ProjectInsight } from "@/lib/ai";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 const RISK_META: Record<string, { label: string; cls: string; icon: string }> = {
   LOW:      { label: "Low risk",      cls: "db-insight-low",      icon: "✅" },
@@ -23,7 +24,7 @@ export function ProjectInsightsWidget() {
     try {
       const res  = await fetch("/api/ai/insights", { method: "POST" });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Analysis failed.");
+      if (!res.ok) throw new Error(getApiErrorMessage(res, json, "Analysis failed."));
       setState({ phase: "done", insights: json.data.insights });
     } catch (err) {
       setState({ phase: "error", message: err instanceof Error ? err.message : "Something went wrong." });

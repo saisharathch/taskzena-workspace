@@ -4,7 +4,7 @@ import { getWorkspacePermissions, requireWorkspaceMembership, requireWorkspaceRo
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { publicEnv } from "@/lib/env/public";
 import { sendInviteEmail } from "@/lib/email";
-import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { WorkspaceRole } from "@prisma/client";
 import { z } from "zod";
 
@@ -48,8 +48,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
     const { workspaceId } = await params;
 
-    const limit = Limiters.invite(workspaceId);
-    if (!limit.success) return rateLimitResponse(limit.retryAfterMs);
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "workspaces:invites:create",
+      rules: [...RateLimitPresets.invite, ...RateLimitPresets.sensitiveMutation],
+      userId: user.id,
+      keySuffix: workspaceId,
+      message: "Too many invite requests. Please try again later.",
+    });
+    if (limitResponse) return limitResponse;
 
     const membership = await requireWorkspaceRole(
       user.id,

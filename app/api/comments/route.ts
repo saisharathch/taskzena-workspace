@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { requireWorkspaceMembership } from "@/lib/auth/authorization";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { createCommentSchema } from "@/lib/validation/comment";
 import { notifyTaskCommented } from "@/lib/services/notifications";
 
@@ -9,6 +10,13 @@ export async function POST(request: Request) {
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "comments:create",
+      rules: RateLimitPresets.mutation,
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
     const payload = createCommentSchema.safeParse(await request.json());
 
     if (!payload.success) {

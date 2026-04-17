@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 type Props = {
   workspaceId: string;
@@ -38,7 +39,7 @@ export function InviteMemberForm({ workspaceId, workspaceName, allowOwnerRole = 
         await onSuccess?.();
       } else {
         setStatus("error");
-        setMessage(data.error ?? "Failed to send invite.");
+        setMessage(getApiErrorMessage(res, data, "Failed to send invite."));
       }
     } catch {
       setStatus("error");

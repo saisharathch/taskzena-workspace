@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 type ParsedTask = {
   title: string;
@@ -40,7 +41,7 @@ export function NaturalLanguageTaskCreator({ projects }: { projects: Project[] }
         body: JSON.stringify({ input }),
       });
       const json = await response.json();
-      if (!response.ok) throw new Error(json.error ?? "Parsing failed.");
+      if (!response.ok) throw new Error(getApiErrorMessage(response, json, "Parsing failed."));
 
       const tasks: ParsedTask[] = json.data.tasks;
       setParsed(tasks);
@@ -73,9 +74,18 @@ export function NaturalLanguageTaskCreator({ projects }: { projects: Project[] }
             status: "TODO",
           }),
         });
-        if (response.ok) created += 1;
+        if (response.ok) {
+          created += 1;
+        } else {
+          const result = await response.json().catch(() => null);
+          if (response.status === 429) {
+            throw new Error(getApiErrorMessage(response, result, "Too many requests. Please try again later."));
+          }
+        }
       } catch {
-        // Skip failed tasks and continue creating the rest.
+        setError("Task creation is being rate limited. Please wait a moment and try again.");
+        setPhase("preview");
+        return;
       }
     }
 

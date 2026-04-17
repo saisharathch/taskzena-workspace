@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { analyzeTask } from "@/lib/ai";
-import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -17,8 +17,13 @@ export async function POST(request: Request) {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
 
-    const limit = Limiters.ai(user.id);
-    if (!limit.success) return rateLimitResponse(limit.retryAfterMs);
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "ai:jobs:create",
+      rules: RateLimitPresets.ai,
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
 
     const body = createSchema.safeParse(await request.json().catch(() => null));
     if (!body.success) return jsonError("Invalid payload.", 400, body.error.flatten());

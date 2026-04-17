@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 function toSlug(value: string) {
   return value
@@ -46,7 +47,7 @@ export function CreateWorkspaceForm({ onSuccess }: { onSuccess?: (workspaceName:
     const result = await response.json();
 
     if (!response.ok) {
-      setError(result.error ?? "Failed to create workspace.");
+      setError(getApiErrorMessage(response, result, "Failed to create workspace."));
       setLoading(false);
       return;
     }

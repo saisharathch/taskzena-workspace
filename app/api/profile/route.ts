@@ -2,6 +2,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { jsonError, jsonOk } from "@/lib/http";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 
 const updateProfileSchema = z.object({
   fullName: z.string().trim().min(2).max(80),
@@ -11,6 +12,13 @@ export async function PATCH(request: Request) {
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "profile:update",
+      rules: RateLimitPresets.mutation,
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
 
     const parsed = updateProfileSchema.safeParse(await request.json());
     if (!parsed.success) {

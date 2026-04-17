@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreateWorkspaceForm } from "@/components/forms/CreateWorkspaceForm";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 type WorkspaceSummary = {
   id: string;
@@ -86,7 +87,7 @@ export function SettingsControlCenter({ profile, workspaces }: Props) {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error ?? "Failed to update profile.");
+        throw new Error(getApiErrorMessage(response, result, "Failed to update profile."));
       }
 
       setProfileOpen(false);
@@ -117,7 +118,7 @@ export function SettingsControlCenter({ profile, workspaces }: Props) {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error ?? "Failed to leave workspace.");
+        throw new Error(getApiErrorMessage(response, result, "Failed to leave workspace."));
       }
 
       setFeedback({ tone: "success", message: `You left ${selectedWorkspace.name}.` });
@@ -147,7 +148,7 @@ export function SettingsControlCenter({ profile, workspaces }: Props) {
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(result.error ?? "Failed to delete workspace.");
+        throw new Error(getApiErrorMessage(response, result, "Failed to delete workspace."));
       }
 
       setFeedback({ tone: "success", message: `${selectedWorkspace.name} was deleted.` });

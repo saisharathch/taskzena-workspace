@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { requireWorkspaceRole } from "@/lib/auth/authorization";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { WorkspaceRole } from "@prisma/client";
 import { z } from "zod";
 
@@ -17,6 +18,13 @@ export async function PATCH(
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "workspaces:members:update-role",
+      rules: [...RateLimitPresets.mutation, ...RateLimitPresets.sensitiveMutation],
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
     const { workspaceId, memberId } = await params;
 
     const callerMembership = await requireWorkspaceRole(
@@ -55,6 +63,13 @@ export async function DELETE(
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request: _req,
+      route: "workspaces:members:remove",
+      rules: [...RateLimitPresets.mutation, ...RateLimitPresets.sensitiveMutation],
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
     const { workspaceId, memberId } = await params;
 
     const callerMembership = await requireWorkspaceRole(

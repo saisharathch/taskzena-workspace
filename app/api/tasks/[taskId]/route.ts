@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { requireWorkspaceRole, WORKSPACE_MANAGER_ROLES, WORKSPACE_TASK_EDITOR_ROLES } from "@/lib/auth/authorization";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { updateTaskSchema } from "@/lib/validation/task";
 import { notifyTaskAssigned, notifyTaskStatusChanged } from "@/lib/services/notifications";
 
@@ -9,6 +10,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ taskI
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "tasks:update",
+      rules: RateLimitPresets.mutation,
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
     const { taskId } = await context.params;
     const payload = updateTaskSchema.safeParse(await request.json());
 
@@ -95,6 +103,13 @@ export async function DELETE(_request: Request, context: { params: Promise<{ tas
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request: _request,
+      route: "tasks:delete",
+      rules: [...RateLimitPresets.mutation, ...RateLimitPresets.sensitiveMutation],
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
     const { taskId } = await context.params;
 
     const existingTask = await prisma.task.findUnique({

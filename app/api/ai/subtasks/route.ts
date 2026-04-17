@@ -2,14 +2,19 @@ import { getApiUser } from "@/lib/auth/session";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
 import { generateSubtasks } from "@/lib/ai";
 import { generateSubtasksSchema } from "@/lib/validation/ai";
-import { Limiters, rateLimitResponse } from "@/lib/rate-limit";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
-    const limit = Limiters.ai(user.id);
-    if (!limit.success) return rateLimitResponse(limit.retryAfterMs);
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "ai:subtasks",
+      rules: RateLimitPresets.ai,
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
 
     const payload = generateSubtasksSchema.safeParse(await request.json());
     if (!payload.success) {

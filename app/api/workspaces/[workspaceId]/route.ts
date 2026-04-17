@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { requireWorkspaceRole } from "@/lib/auth/authorization";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { WorkspaceRole } from "@prisma/client";
 
 export async function DELETE(
@@ -11,6 +12,13 @@ export async function DELETE(
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request: _request,
+      route: "workspaces:delete",
+      rules: [...RateLimitPresets.mutation, ...RateLimitPresets.sensitiveMutation],
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
 
     const { workspaceId } = await params;
     await requireWorkspaceRole(user.id, workspaceId, [WorkspaceRole.OWNER], "Only workspace owners can delete a workspace.");

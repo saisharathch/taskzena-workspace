@@ -2,12 +2,20 @@ import { WorkspaceRole } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { jsonError, jsonOk } from "@/lib/http";
+import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { createWorkspaceSchema } from "@/lib/validation/workspace";
 
 export async function POST(request: Request) {
   try {
     const user = await getApiUser();
     if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+    const limitResponse = enforceRateLimit({
+      request,
+      route: "workspaces:create",
+      rules: [...RateLimitPresets.mutation, ...RateLimitPresets.sensitiveMutation],
+      userId: user.id,
+    });
+    if (limitResponse) return limitResponse;
     const json = await request.json();
     const data = createWorkspaceSchema.safeParse(json);
 

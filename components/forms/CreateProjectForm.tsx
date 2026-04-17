@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 type WorkspaceOption = {
   id: string;
@@ -42,7 +43,7 @@ export function CreateProjectForm({ workspaces, onSuccess }: { workspaces: Works
 
     const result = await response.json();
     if (!response.ok) {
-      setError(result.error ?? "Failed to create project.");
+      setError(getApiErrorMessage(response, result, "Failed to create project."));
       setLoading(false);
       return;
     }

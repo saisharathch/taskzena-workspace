@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 const TASK_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 type TaskPriority = (typeof TASK_PRIORITIES)[number];
@@ -81,7 +82,7 @@ export function CreateTaskForm({
     const result = await response.json();
 
     if (!response.ok) {
-      setError(result.error ?? "Failed to create task.");
+      setError(getApiErrorMessage(response, result, "Failed to create task."));
       setLoading(false);
       return;
     }

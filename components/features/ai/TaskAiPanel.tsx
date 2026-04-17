@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getApiErrorMessage } from "@/lib/client/api";
 
 type TaskAiPanelProps = {
   title: string;
@@ -27,7 +28,7 @@ export function TaskAiPanel({ title, description }: TaskAiPanelProps) {
     const result = await response.json();
 
     if (!response.ok) {
-      setError(result.error ?? "The AI request could not be completed.");
+      setError(getApiErrorMessage(response, result, "The AI request could not be completed."));
       setLoading(null);
       return;
     }
