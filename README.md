@@ -1,223 +1,114 @@
-<<<<<<< HEAD
-# AI Collaborative Task Platform
+# Taskzena Workspace
 
-Production-style full-stack task management SaaS built with **Next.js App Router**, **Node.js route handlers**, **Prisma ORM**, **PostgreSQL on Supabase**, **Supabase Auth**, and **OpenAI-powered task workflows**.
+Taskzena Workspace is an AI-powered task management platform built for teams to organize work, track priorities, monitor progress, and improve execution.
 
-This project is designed to be portfolio-ready and resume-relevant for full-stack and AI product engineering roles.
+It combines task management, workspace collaboration, analytics, and AI-powered workflow support in one platform.
 
-## Highlights
+## What this project does
 
-- **Multi-tenant architecture** with isolated workspaces
-- **Role-based access control** for workspace membership
-- **Prisma + PostgreSQL** relational data model with indexes
-- **Supabase server-side auth** for secure session handling
-- **Typed route handlers** with **Zod validation**
-- **Audit trail** via activity logs
-- **AI features** for task summarization and subtask generation
-- **Vercel-friendly deployment**
+This project helps users:
 
-## Tech Stack
+- create and manage workspaces
+- organize projects and tasks
+- assign work to team members
+- track task status and priority
+- monitor delivery and productivity insights
+- use AI to summarize tasks and generate subtasks
 
-- Next.js (App Router)
+## Why this project is useful
+
+Many task management tools only help teams store tasks.  
+Taskzena Workspace is designed to go further by helping teams understand work progress, improve visibility, and make planning easier.
+
+This project is useful for showing:
+
+- full-stack development skills
+- backend API design
+- database design
+- authentication and authorization
+- AI integration in real applications
+
+## Main features
+
+- Workspace-based collaboration
+- Project and task management
+- Role-based access control
+- Priority and status tracking
+- Comments and activity logs
+- AI task summarization
+- AI-generated subtasks
+- Dashboard and execution insights
+
+## Tech stack
+
+- Next.js
 - TypeScript
-- Node.js route handlers
+- Node.js
 - Prisma ORM
-- PostgreSQL (Supabase)
-- Supabase Auth + SSR helpers
+- PostgreSQL
+- Supabase
 - Zod
 - OpenAI API
 
-## Architecture
+## Project structure
 
-```mermaid
-flowchart TD
-    A[Browser Client] --> B[Next.js App Router UI]
-    B --> C[Route Handlers /api/*]
-    C --> D[Prisma Service Layer]
-    D --> E[(PostgreSQL on Supabase)]
-    B --> F[Supabase Auth SSR]
-    C --> G[OpenAI Responses API]
-    C --> H[Activity Log]
-```
+-- User
+Represents the signed-in user of the application.
 
-### Core Domain Model
+-- Workspace
+A workspace is a team area where users can manage projects and tasks.
 
-- `User`: app-level user mapped to Supabase auth user
-- `Workspace`: tenant boundary
-- `WorkspaceMember`: user-role join table for RBAC
-- `Project`: grouping container for tasks within a workspace
-- `Task`: primary work unit with status, priority, assignee, due date
-- `Comment`: task discussion thread
-- `ActivityLog`: audit trail for important actions
+-- WorkspaceMember
+Stores which users belong to a workspace and what role they have.
 
-## Folder Structure
+-- Project
+A project is a collection of related tasks inside a workspace.
 
-```txt
-app/
-  (auth)/login
-  (auth)/signup
-  api/
-    ai/
-    auth/callback
-    comments
-    projects
-    tasks
-    workspaces
-  dashboard/
-components/
-lib/
-  ai.ts
-  auth/
-  db/
-  http.ts
-  supabase/
-  validation/
-prisma/
-```
+-- Task
+A task is the main work item.  
+It can include details like title, description, status, priority, assignee, and due date.
 
-## Local Setup
+-- Comment
+Used for discussions on tasks.
 
-### 1. Install dependencies
+-- ActivityLog
+Tracks important actions for visibility and audit purposes.
 
-```bash
-npm install
-```
+How the system works
 
-### 2. Configure environment variables
+1. A user signs in
+2. The user creates or joins a workspace
+3. Inside the workspace, projects can be created
+4. Tasks are added to projects
+5. Team members can update, comment on, and track tasks
+6. AI features help summarize tasks and break work into subtasks
+7. Dashboards provide visibility into progress and execution
 
-Copy the example env file:
+--Local setup
 
-```bash
-cp .env.example .env
-```
+--Install dependencies
+bash -- npm install
 
-Fill in:
+--Add environment variables
 
-- `DATABASE_URL`
-- `DIRECT_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `OPENAI_API_KEY`
+Create a .env file and add:
 
-### 3. Run database migrations
+DATABASE_URL=
+DIRECT_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+OPENAI_API_KEY=
 
-```bash
-npx prisma migrate dev --name init
-npx prisma generate
-```
+Run database migration --npx prisma migrate dev --name init
 
-### 4. Optional seed
-
-```bash
-npm run db:seed
-```
-
-### 5. Start the app
-
-```bash
 npm run dev
-```
 
-## Supabase Setup Notes
+Security
 
-1. Create a Supabase project.
-2. Enable email/password auth.
-3. Add your application URL and callback route:
-   - `http://localhost:3000/api/auth/callback`
-4. Use the Postgres connection string for `DATABASE_URL` and `DIRECT_URL`.
+This project includes:
 
-## Production Deployment
-
-### Vercel
-
-1. Import this repository into Vercel.
-2. Add all environment variables in the Vercel project settings.
-3. Ensure the production callback URL is added to Supabase auth settings.
-4. Run build command:
-
-```bash
-npm run build
-```
-
-## API Overview
-
-### `POST /api/workspaces`
-Create a workspace and initial owner membership.
-
-### `POST /api/projects`
-Create a project inside an authorized workspace.
-
-### `GET /api/tasks`
-Fetch visible tasks with optional filters.
-
-### `POST /api/tasks`
-Create a task in a project you have access to.
-
-### `PATCH /api/tasks/:taskId`
-Update task fields.
-
-### `DELETE /api/tasks/:taskId`
-Delete a task.
-
-### `POST /api/comments`
-Create a task comment.
-
-### `POST /api/ai/summarize`
-Generate task summary.
-
-### `POST /api/ai/subtasks`
-Generate implementation-ready subtasks.
-
-## Security and Production Notes
-
-- All write endpoints require an authenticated user.
-- Workspace membership is enforced before project/task/comment access.
-- Inputs are validated with Zod before touching the database.
-- Activity logs create an audit trail for critical actions.
-- For true production hardening, add:
-  - rate limiting
-  - CSRF protection strategy where applicable
-  - structured logging/monitoring
-  - end-to-end tests
-  - stronger admin/member UI flows
-  - Row Level Security alignment if you expose Supabase tables directly
-
-## Portfolio Positioning
-
-Use this project to demonstrate:
-
-- full-stack ownership
-- multi-tenant SaaS architecture
-- relational database modeling
-- backend API design
-- AI product integration
-- deployable engineering systems
-
-## Resume Bullets
-
-**AI-Powered Collaborative Task Platform** | Next.js, Node.js, PostgreSQL, Prisma, Supabase, OpenAI API
-- Architected and built a multi-tenant task management platform with role-based access control, supporting isolated workspaces and secure collaboration across users.
-- Designed a normalized PostgreSQL schema using Prisma ORM with relational models, indexing strategies, and optimized queries to handle complex task, project, and activity data.
-- Developed modular backend APIs with Next.js and Node.js, implementing validation, pagination, filtering, and state transitions for scalable task workflows.
-- Integrated AI-driven task decomposition and summarization features via backend services, enabling automated conversion of unstructured input into actionable workflows.
-- Implemented activity logging, performance optimizations, and production-ready deployment patterns, demonstrating end-to-end system design and engineering ownership.
-
-## Tradeoffs
-
-- This starter keeps the app in a single Next.js codebase to reduce deployment complexity.
-- It uses route handlers instead of a separate Express service because the goal is a strong full-stack portfolio project, not microservice decomposition.
-- The UI is intentionally lightweight so the architecture, data modeling, and backend decisions stay front and center.
-
-## Next Upgrades
-
-- real-time updates with Supabase Realtime
-- invitation workflows and email onboarding
-- background job queue for long-running AI workflows
-- analytics dashboards
-- cursor pagination across task feeds
-- e2e test coverage with Playwright
-=======
-# taskzena-workspace
-Built a modern AI-powered task management platform with workspace analytics, priority tracking, delivery insights, and executive dashboards to help teams plan, monitor, and accelerate execution.
->>>>>>> 7d94041d679738faabec0a0961690674a596359b
+authenticated access for protected actions
+workspace-level permission checks
+input validation using Zod
+activity logging for important actions
