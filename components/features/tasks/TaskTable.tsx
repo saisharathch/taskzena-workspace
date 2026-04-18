@@ -1,14 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
+import { getApiErrorMessage } from "@/lib/client/api";
 import type { DashboardTask } from "@/lib/services/dashboard";
 
-type Props = { tasks: DashboardTask[]; workspaceIds: string[] };
+type TaskListPayload = {
+  data?: DashboardTask[];
+  nextCursor?: string | null;
+  error?: string;
+  message?: string;
+};
+
+type Props = {
+  tasks: DashboardTask[];
+  workspaceIds: string[];
+  initialNextCursor: string | null;
+};
 
 const STATUS_OPTIONS = ["All", "TODO", "IN_PROGRESS", "BLOCKED", "DONE"] as const;
 const PRIORITY_OPTIONS = ["All", "URGENT", "HIGH", "MEDIUM", "LOW"] as const;
-const PAGE_SIZE = 5;
 
 type SmartQuery = {
   textQuery: string;
@@ -106,7 +117,26 @@ function priorityClass(priority: string) {
 }
 
 function isOverdue(task: DashboardTask) {
-  return task.dueDate && task.dueDate.getTime() < Date.now() && task.status !== "DONE";
+  return task.dueDate && new Date(task.dueDate).getTime() < Date.now() && task.status !== "DONE";
+}
+
+function mergeTasks(...groups: DashboardTask[][]) {
+  const seen = new Set<string>();
+  const merged: DashboardTask[] = [];
+
+  for (const group of groups) {
+    for (const task of group) {
+      if (seen.has(task.id)) continue;
+      seen.add(task.id);
+      merged.push(task);
+    }
+  }
+
+  return merged.sort((left, right) => {
+    const timeDiff = new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+    if (timeDiff !== 0) return timeDiff;
+    return right.id.localeCompare(left.id);
+  });
 }
 
 const dateFmt = new Intl.DateTimeFormat("en-US", {
@@ -123,19 +153,30 @@ const STATUS_LABEL: Record<string, string> = {
   offline: "Offline",
 };
 
-export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
+export function TaskTable({ tasks: initialTasks, workspaceIds, initialNextCursor }: Props) {
   const { tasks, status: rtStatus } = useRealtimeTasks({ workspaceIds, initialTasks });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("All");
   const [priority, setPriority] = useState<string>("All");
-  const [page, setPage] = useState(0);
+  const [extraTasks, setExtraTasks] = useState<DashboardTask[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
+
+  useEffect(() => {
+    setExtraTasks([]);
+    setNextCursor(initialNextCursor);
+    setLoadMoreError("");
+  }, [initialTasks, initialNextCursor]);
+
+  const mergedTasks = useMemo(() => mergeTasks(tasks, extraTasks), [tasks, extraTasks]);
 
   const filtered = useMemo(() => {
     const { textQuery, smartPriority, smartStatus, onlyOverdue, onlyUnassigned } = parseSmartQuery(search);
     const effectivePriority = smartPriority ?? (priority !== "All" ? priority : null);
     const effectiveStatus = smartStatus ?? (status !== "All" ? status : null);
 
-    return tasks.filter((task) => {
+    return mergedTasks.filter((task) => {
       if (effectivePriority && task.priority !== effectivePriority) return false;
       if (effectiveStatus && task.status !== effectiveStatus) return false;
       if (onlyOverdue && !isOverdue(task)) return false;
@@ -154,12 +195,37 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
 
       return true;
     });
-  }, [tasks, status, priority, search]);
+  }, [mergedTasks, status, priority, search]);
 
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const pageItems = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
-  const pageStart = page * PAGE_SIZE + 1;
-  const pageEnd = Math.min(pageStart + PAGE_SIZE - 1, filtered.length);
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return;
+
+    setLoadingMore(true);
+    setLoadMoreError("");
+
+    try {
+      const params = new URLSearchParams({ limit: "50", cursor: nextCursor });
+      const response = await fetch(`/api/tasks?${params.toString()}`, { cache: "no-store" });
+      const payload = (await response.json()) as {
+        success?: boolean;
+        data?: TaskListPayload;
+        error?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !payload.success) {
+        setLoadMoreError(getApiErrorMessage(response, payload, "We could not load more tasks right now."));
+        return;
+      }
+
+      setExtraTasks((current) => mergeTasks(current, (payload.data?.data ?? []) as DashboardTask[]));
+      setNextCursor(payload.data?.nextCursor ?? null);
+    } catch {
+      setLoadMoreError("We could not load more tasks right now.");
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return (
     <section className="db-section task-list-shell">
@@ -181,20 +247,14 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
           type="search"
           placeholder="Search tasks, projects, assignees, or use terms like urgent, blocked, overdue"
           value={search}
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(0);
-          }}
+          onChange={(event) => setSearch(event.target.value)}
           suppressHydrationWarning
         />
 
         <select
           className="select db-filter-select"
           value={status}
-          onChange={(event) => {
-            setStatus(event.target.value);
-            setPage(0);
-          }}
+          onChange={(event) => setStatus(event.target.value)}
           suppressHydrationWarning
         >
           {STATUS_OPTIONS.map((option) => (
@@ -207,10 +267,7 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
         <select
           className="select db-filter-select"
           value={priority}
-          onChange={(event) => {
-            setPriority(event.target.value);
-            setPage(0);
-          }}
+          onChange={(event) => setPriority(event.target.value)}
           suppressHydrationWarning
         >
           {PRIORITY_OPTIONS.map((option) => (
@@ -227,7 +284,6 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
               setSearch("");
               setStatus("All");
               setPriority("All");
-              setPage(0);
             }}
             type="button"
           >
@@ -250,7 +306,7 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
           </thead>
           <tbody>
             {filtered.length ? (
-              pageItems.map((task) => {
+              filtered.map((task) => {
                 const overdue = isOverdue(task);
                 const description =
                   task.description && task.description.length > 96
@@ -285,7 +341,7 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
                     </td>
                     <td className={overdue ? "db-overdue-date" : undefined}>
                       {task.dueDate ? (
-                        dateFmt.format(task.dueDate)
+                        dateFmt.format(new Date(task.dueDate))
                       ) : (
                         <span className="table-subtitle">No deadline</span>
                       )}
@@ -297,7 +353,7 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
             ) : (
               <tr>
                 <td className="table-empty" colSpan={6}>
-                  {tasks.length === 0
+                  {mergedTasks.length === 0
                     ? "No tasks yet. Create your first task to populate this view."
                     : "No tasks match your current filters."}
                 </td>
@@ -307,31 +363,15 @@ export function TaskTable({ tasks: initialTasks, workspaceIds }: Props) {
         </table>
       </div>
 
-      {totalPages > 1 && (
+      {(nextCursor || loadMoreError) && (
         <div className="activity-pagination">
-          <button
-            className="activity-page-btn"
-            onClick={() => setPage((currentPage) => currentPage - 1)}
-            disabled={page === 0}
-            aria-label="Previous page"
-            suppressHydrationWarning
-            type="button"
-          >
-            {"<"}
-          </button>
-          <span className="activity-page-info">
-            {pageStart}-{pageEnd} of {filtered.length}
-          </span>
-          <button
-            className="activity-page-btn"
-            onClick={() => setPage((currentPage) => currentPage + 1)}
-            disabled={page >= totalPages - 1}
-            aria-label="Next page"
-            suppressHydrationWarning
-            type="button"
-          >
-            {">"}
-          </button>
+          <span className="activity-page-info">{filtered.length} loaded</span>
+          {nextCursor ? (
+            <button className="button secondary" onClick={loadMore} disabled={loadingMore} type="button">
+              {loadingMore ? "Loading more..." : "Load more"}
+            </button>
+          ) : null}
+          {loadMoreError ? <span className="notice error">{loadMoreError}</span> : null}
         </div>
       )}
     </section>

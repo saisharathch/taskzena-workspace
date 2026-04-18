@@ -26,12 +26,19 @@ const TAB_META: Record<Tab, { title: string; subtitle: string }> = {
 
 type Props = {
   tasks: DashboardTask[];
+  tasksNextCursor: string | null;
   workspaceIds: string[];
   projects: ProjectOption[];
   membersByWorkspace: Record<string, MemberOption[]>;
 };
 
-export function TasksPageClient({ tasks, workspaceIds, projects, membersByWorkspace }: Props) {
+export function TasksPageClient({
+  tasks,
+  tasksNextCursor,
+  workspaceIds,
+  projects,
+  membersByWorkspace,
+}: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("board");
   const [newTaskOpen, setNewTaskOpen] = useState(false);
 
@@ -125,7 +132,7 @@ export function TasksPageClient({ tasks, workspaceIds, projects, membersByWorksp
             style={{ display: activeTab === "list" ? undefined : "none" }}
             aria-hidden={activeTab !== "list"}
           >
-            <TaskTable tasks={tasks} workspaceIds={workspaceIds} />
+            <TaskTable tasks={tasks} workspaceIds={workspaceIds} initialNextCursor={tasksNextCursor} />
           </div>
 
           <div

@@ -134,6 +134,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
       expiresAt,
     });
 
+    await prisma.activityLog.create({
+      data: {
+        workspaceId,
+        actorId: user.id,
+        action: "workspace.member_invited",
+        metadata: {
+          email: body.data.email,
+          role: body.data.role,
+          workspaceName: workspace.name,
+        },
+      },
+    });
+
     return jsonOk({ invite: { id: invite.id, token: invite.token, inviteUrl } }, { status: 201 });
   } catch (error) {
     return jsonErrorFromUnknown(error, "Failed to send invite.");

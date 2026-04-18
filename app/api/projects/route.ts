@@ -2,9 +2,52 @@ import { prisma } from "@/lib/db/prisma";
 import { requireWorkspaceRole } from "@/lib/auth/authorization";
 import { getApiUser } from "@/lib/auth/session";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
+import { buildCursorPage, parseCursorPagination } from "@/lib/pagination";
 import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { createProjectSchema } from "@/lib/validation/project";
 import { WorkspaceRole } from "@prisma/client";
+
+export async function GET(request: Request) {
+  try {
+    const user = await getApiUser();
+    if (!user) return Response.json({ success: false, error: "Unauthorized." }, { status: 401 });
+
+    const { limit, cursor } = parseCursorPagination(request, { defaultLimit: 20, maxLimit: 100 });
+
+    const projects = await prisma.project.findMany({
+      where: {
+        workspace: {
+          memberships: { some: { userId: user.id } },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        createdAt: true,
+        updatedAt: true,
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        _count: {
+          select: {
+            tasks: true,
+          },
+        },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+
+    return jsonOk(buildCursorPage(projects, limit));
+  } catch (error) {
+    return jsonErrorFromUnknown(error, "Failed to fetch projects.");
+  }
+}
 
 export async function POST(request: Request) {
   try {

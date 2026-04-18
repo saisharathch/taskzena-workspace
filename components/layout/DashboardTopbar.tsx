@@ -13,6 +13,7 @@ const PAGE_META: Record<string, { label: string; title: string }> = {
   "/dashboard/projects": { label: "Projects", title: "Project portfolio" },
   "/dashboard/tasks": { label: "Execution", title: "Task operations" },
   "/dashboard/analytics": { label: "Analytics", title: "Performance insights" },
+  "/dashboard/activity": { label: "Activity", title: "Workspace activity feed" },
   "/dashboard/team": { label: "Collaboration", title: "Team workspace" },
   "/dashboard/settings": { label: "Settings", title: "Workspace control center" },
   "/dashboard/reports": { label: "Reports", title: "Delivery reports" },

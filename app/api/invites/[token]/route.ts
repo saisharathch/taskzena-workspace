@@ -68,7 +68,11 @@ export async function POST(_req: Request, { params }: { params: Promise<{ token:
           workspaceId: invite.workspaceId,
           actorId: user.id,
           action: "workspace.member_joined",
-          metadata: { email: user.email, role: invite.role },
+          metadata: {
+            email: user.email,
+            memberName: user.fullName ?? user.email,
+            role: invite.role,
+          },
         },
       }),
     ]);

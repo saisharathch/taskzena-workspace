@@ -56,6 +56,15 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    label: "Activity",
+    href: "/dashboard/activity",
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+        <path d="M2 8h2l1.2-2.4L7.8 11l1.9-3h4.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
     label: "Team",
     href: "/dashboard/team",
     icon: (

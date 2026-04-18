@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { InviteMemberForm } from "@/components/forms/InviteMemberForm";
 import { MemberTable } from "@/app/dashboard/settings/[workspaceId]/MemberTable";
+import { getApiErrorMessage } from "@/lib/client/api";
+import { useWorkspaceRealtime } from "@/hooks/useWorkspaceRealtime";
 
 type WorkspaceOption = {
   id: string;
@@ -44,6 +46,7 @@ type TeamWorkspacePayload = {
     canTransferOwnership: boolean;
   };
   members: TeamMember[];
+  nextCursor: string | null;
   invites: PendingInvite[];
 };
 
@@ -74,6 +77,7 @@ export function TeamManagementPanel({ workspaces }: Props) {
   const [loading, setLoading] = useState(Boolean(initialWorkspaceId));
   const [error, setError] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [loadingMoreMembers, setLoadingMoreMembers] = useState(false);
 
   useEffect(() => {
     if (!initialWorkspaceId) return;
@@ -88,29 +92,60 @@ export function TeamManagementPanel({ workspaces }: Props) {
     }
   }, []);
 
-  async function fetchWorkspaceMembers(workspaceId: string) {
+  async function fetchWorkspaceMembers(
+    workspaceId: string,
+    options?: { cursor?: string | null; append?: boolean },
+  ) {
     if (!workspaceId) return;
-    setLoading(true);
-    setError("");
+    const append = options?.append ?? false;
+    const cursor = options?.cursor ?? null;
+
+    if (append) {
+      setLoadingMoreMembers(true);
+    } else {
+      setLoading(true);
+      setError("");
+    }
 
     try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/members`, {
+      const params = new URLSearchParams({ limit: "20" });
+      if (cursor) params.set("cursor", cursor);
+
+      const response = await fetch(`/api/workspaces/${workspaceId}/members?${params.toString()}`, {
         cache: "no-store",
       });
       const result = await response.json();
 
-      if (!result.success) {
-        setError(result.error ?? "We could not load teammates right now.");
-        setData(null);
+      if (!response.ok || !result.success) {
+        setError(getApiErrorMessage(response, result, "We could not load teammates right now."));
+        if (!append) setData(null);
         return;
       }
 
-      setData(result.data);
+      setData((current) => {
+        if (!append || !current) return result.data as TeamWorkspacePayload;
+
+        const existingIds = new Set(current.members.map((member) => member.id));
+        const mergedMembers = [...current.members];
+
+        for (const member of (result.data.members ?? []) as TeamMember[]) {
+          if (existingIds.has(member.id)) continue;
+          existingIds.add(member.id);
+          mergedMembers.push(member);
+        }
+
+        return {
+          ...result.data,
+          members: mergedMembers,
+          invites: current.invites,
+        } as TeamWorkspacePayload;
+      });
     } catch {
       setError("We had trouble loading this workspace. Please try again.");
-      setData(null);
+      if (!append) setData(null);
     } finally {
-      setLoading(false);
+      if (append) setLoadingMoreMembers(false);
+      else setLoading(false);
     }
   }
 
@@ -118,6 +153,20 @@ export function TeamManagementPanel({ workspaces }: Props) {
     if (!selectedWorkspaceId) return;
     fetchWorkspaceMembers(selectedWorkspaceId);
   }, [selectedWorkspaceId]);
+
+  useWorkspaceRealtime({
+    workspaceIds: selectedWorkspaceId ? [selectedWorkspaceId] : [],
+    channelName: "workspace-team",
+    subscriptions: [
+      { table: "WorkspaceMember" },
+      { table: "WorkspaceInvite" },
+      { table: "ActivityLog" },
+    ],
+    onEvent: () => {
+      if (!selectedWorkspaceId) return;
+      void fetchWorkspaceMembers(selectedWorkspaceId);
+    },
+  });
 
   const inviteAllowed = data?.permissions.canInviteMembers ?? workspaces.some((workspace) => workspace.canManage);
   const openInvite = () => {
@@ -262,6 +311,23 @@ export function TeamManagementPanel({ workspaces }: Props) {
                 canTransferOwnership={data.permissions.canTransferOwnership}
                 onChanged={() => fetchWorkspaceMembers(data.workspace.id)}
               />
+              {data.nextCursor ? (
+                <div className="team-empty-actions">
+                  <button
+                    className="button secondary"
+                    type="button"
+                    onClick={() =>
+                      fetchWorkspaceMembers(data.workspace.id, {
+                        cursor: data.nextCursor,
+                        append: true,
+                      })
+                    }
+                    disabled={loadingMoreMembers}
+                  >
+                    {loadingMoreMembers ? "Loading more..." : "Load more members"}
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : data ? (
             <div className="team-empty-card">

@@ -89,6 +89,7 @@ export type DashboardProject = {
 
 export type DashboardData = {
   tasks: DashboardTask[];
+  tasksNextCursor: string | null;
   workspaces: DashboardWorkspace[];
   projects: DashboardProject[];
   recentActivity: DashboardActivity[];
@@ -122,10 +123,11 @@ async function fetchMemberships(userId: string) {
   });
 }
 
-async function fetchTasks(workspaceIds: string[]): Promise<DashboardTask[]> {
-  if (!workspaceIds.length) return [];
+async function fetchTasks(workspaceIds: string[]): Promise<{ tasks: DashboardTask[]; nextCursor: string | null }> {
+  if (!workspaceIds.length) return { tasks: [], nextCursor: null };
 
-  return prisma.task.findMany({
+  const pageSize = 50;
+  const tasks = await prisma.task.findMany({
     where: {
       project: {
         workspaceId: { in: workspaceIds },
@@ -136,9 +138,15 @@ async function fetchTasks(workspaceIds: string[]): Promise<DashboardTask[]> {
       assignee: true,
       comments: { select: { id: true } },
     },
-    orderBy: [{ dueDate: "asc" }, { createdAt: "desc" }],
-    take: 50,
-  }) as Promise<DashboardTask[]>;
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: pageSize + 1,
+  });
+
+  const hasMore = tasks.length > pageSize;
+  const items = hasMore ? tasks.slice(0, pageSize) : tasks;
+  const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
+
+  return { tasks: items, nextCursor };
 }
 
 // ── Calculations ─────────────────────────────────────────────────────────────
@@ -267,7 +275,7 @@ function buildFocusMessage(stats: DashboardStats, hasTasks: boolean): string {
 export async function getDashboardData(userId: string): Promise<DashboardData> {
   const memberships = await fetchMemberships(userId);
   const workspaceIds = memberships.map((m) => m.workspaceId);
-  const tasks = await fetchTasks(workspaceIds);
+  const { tasks, nextCursor } = await fetchTasks(workspaceIds);
 
   const projectCount = memberships.reduce((n, m) => n + m.workspace.projects.length, 0);
   const uniqueMembers = new Set(
@@ -300,6 +308,7 @@ export async function getDashboardData(userId: string): Promise<DashboardData> {
 
   return {
     tasks,
+    tasksNextCursor: nextCursor,
     workspaces: buildWorkspaceSummaries(memberships, tasks),
     projects: buildProjectStats(tasks, projectOptions),
     recentActivity,

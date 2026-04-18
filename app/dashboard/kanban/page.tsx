@@ -12,11 +12,12 @@ export default async function KanbanPage() {
   const workspaceIds = memberships.map((m) => m.workspaceId);
 
   const tasks = workspaceIds.length
-    ? await prisma.task.findMany({
+      ? await prisma.task.findMany({
         where: { project: { workspaceId: { in: workspaceIds } } },
         include: {
           project: { include: { workspace: { select: { id: true, name: true } } } },
-          assignee: { select: { fullName: true, email: true } },
+          assignee: { select: { id: true, fullName: true, email: true } },
+          comments: { select: { id: true } },
         },
         orderBy: [{ priority: "asc" }, { dueDate: "asc" }],
         take: 200,

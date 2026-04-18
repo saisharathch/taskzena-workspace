@@ -10,6 +10,7 @@ export default async function TasksPage() {
   return (
     <TasksPageClient
       tasks={data.tasks}
+      tasksNextCursor={data.tasksNextCursor}
       workspaceIds={workspaceIds}
       projects={data.projectOptions}
       membersByWorkspace={data.membersByWorkspace}

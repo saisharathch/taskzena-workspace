@@ -2,23 +2,10 @@
 
 import type { DragEvent } from "react";
 import { useCallback, useState } from "react";
+import { useRealtimeTasks } from "@/hooks/useRealtimeTasks";
+import type { DashboardTask } from "@/lib/services/dashboard";
 
-type KanbanTask = {
-  id: string;
-  title: string;
-  description: string | null;
-  status: string;
-  priority: string;
-  dueDate: Date | null;
-  project: {
-    id: string;
-    name: string;
-    workspace: { id: string; name: string };
-  };
-  assignee: { fullName: string | null; email: string | null } | null;
-};
-
-type Props = { initialTasks: KanbanTask[] };
+type Props = { initialTasks: DashboardTask[] };
 
 const COLUMNS = [
   { key: "TODO", label: "To Do", color: "#94a3b8", bg: "kanban-col-bg-todo" },
@@ -32,6 +19,13 @@ const PRIORITY_COLOR: Record<string, string> = {
   MEDIUM: "#c4956a",
   HIGH: "#b45309",
   URGENT: "#dc2626",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  connecting: "Connecting...",
+  live: "Live",
+  error: "Reconnecting...",
+  offline: "Offline",
 };
 
 const AVATAR_COLORS = [
@@ -71,12 +65,16 @@ function formatEnum(value: string) {
 
 const dateFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
 
-function isOverdue(task: KanbanTask) {
+function isOverdue(task: DashboardTask) {
   return task.dueDate && new Date(task.dueDate) < new Date() && task.status !== "DONE";
 }
 
 export function KanbanBoard({ initialTasks }: Props) {
-  const [tasks, setTasks] = useState<KanbanTask[]>(initialTasks);
+  const workspaceIds = Array.from(new Set(initialTasks.map((task) => task.project.workspace.id)));
+  const { tasks, status: realtimeStatus, updateTaskOptimistically } = useRealtimeTasks({
+    workspaceIds,
+    initialTasks,
+  });
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
@@ -122,9 +120,11 @@ export function KanbanBoard({ initialTasks }: Props) {
         return;
       }
 
-      setTasks((previousTasks) =>
-        previousTasks.map((item) => (item.id === taskId ? { ...item, status: targetStatus } : item)),
-      );
+      const rollback = updateTaskOptimistically(taskId, (currentTask) => ({
+        ...currentTask,
+        status: targetStatus,
+      }));
+
       setDraggingId(null);
       setSaving(taskId);
       setError(null);
@@ -141,15 +141,13 @@ export function KanbanBoard({ initialTasks }: Props) {
           throw new Error(body?.error ?? "Failed to update task.");
         }
       } catch (err) {
-        setTasks((previousTasks) =>
-          previousTasks.map((item) => (item.id === taskId ? { ...item, status: task.status } : item)),
-        );
+        rollback();
         setError(err instanceof Error ? err.message : "Update failed.");
       } finally {
         setSaving(null);
       }
     },
-    [tasks],
+    [tasks, updateTaskOptimistically],
   );
 
   const onDragEnd = useCallback(() => {
@@ -169,6 +167,7 @@ export function KanbanBoard({ initialTasks }: Props) {
 
           <div className="kanban-toolbar-meta">
             <span className="kanban-toolbar-count">{filtered.length} active tasks</span>
+            <span className={`db-rt-badge db-rt-${realtimeStatus}`}>{STATUS_LABEL[realtimeStatus]}</span>
           </div>
         </div>
 

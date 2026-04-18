@@ -50,7 +50,7 @@ export async function POST(request: Request) {
         taskId: task.id,
         actorId: user.id,
         action: "comment.created",
-        metadata: { commentId: comment.id }
+        metadata: { commentId: comment.id, taskTitle: task.title }
       }
     });
 

@@ -52,13 +52,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ taskI
       }
     });
 
+    const taskUpdateAction =
+      payload.data.status && payload.data.status !== existingTask.status ? "task.status_changed" : "task.updated";
+
     await prisma.activityLog.create({
       data: {
         workspaceId: existingTask.project.workspaceId,
         taskId: task.id,
         actorId: user.id,
-        action: "task.updated",
-        metadata: payload.data
+        action: taskUpdateAction,
+        metadata: {
+          title: task.title,
+          previousTitle: existingTask.title,
+          previousStatus: existingTask.status,
+          nextStatus: task.status,
+          previousPriority: existingTask.priority,
+          nextPriority: task.priority,
+          previousAssigneeId: existingTask.assigneeId,
+          nextAssigneeId: task.assigneeId,
+        }
       }
     });
 
@@ -135,7 +147,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ tas
         workspaceId: existingTask.project.workspaceId,
         actorId: user.id,
         action: "task.deleted",
-        metadata: { taskId }
+        metadata: { taskId, title: existingTask.title }
       }
     });
 

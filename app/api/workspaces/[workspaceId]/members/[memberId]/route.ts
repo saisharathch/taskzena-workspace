@@ -37,7 +37,10 @@ export async function PATCH(
     const body = updateSchema.safeParse(await request.json());
     if (!body.success) return jsonError("Invalid role.", 400, body.error.flatten());
 
-    const target = await prisma.workspaceMember.findUnique({ where: { id: memberId } });
+    const target = await prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+      include: { user: { select: { fullName: true, email: true } } },
+    });
     if (!target || target.workspaceId !== workspaceId) return jsonError("Member not found.", 404);
     if (target.userId === user.id) return jsonError("You cannot change your own role.", 400);
     if (callerMembership.role !== "OWNER" && (target.role === "OWNER" || body.data.role === "OWNER")) {
@@ -47,6 +50,21 @@ export async function PATCH(
     const updated = await prisma.workspaceMember.update({
       where: { id: memberId },
       data: { role: body.data.role },
+    });
+
+    await prisma.activityLog.create({
+      data: {
+        workspaceId,
+        actorId: user.id,
+        action: "workspace.member_role_updated",
+        metadata: {
+          memberId: updated.id,
+          userId: updated.userId,
+          memberName: target.user.fullName ?? target.user.email,
+          fromRole: target.role,
+          toRole: updated.role,
+        },
+      },
     });
 
     return jsonOk(updated);
@@ -79,7 +97,10 @@ export async function DELETE(
       "Only owners and admins can remove members.",
     );
 
-    const target = await prisma.workspaceMember.findUnique({ where: { id: memberId } });
+    const target = await prisma.workspaceMember.findUnique({
+      where: { id: memberId },
+      include: { user: { select: { fullName: true, email: true } } },
+    });
     if (!target || target.workspaceId !== workspaceId) return jsonError("Member not found.", 404);
     if (target.userId === user.id) return jsonError("You cannot remove yourself.", 400);
     if (callerMembership.role !== "OWNER" && target.role === "OWNER") {
@@ -87,6 +108,19 @@ export async function DELETE(
     }
 
     await prisma.workspaceMember.delete({ where: { id: memberId } });
+    await prisma.activityLog.create({
+      data: {
+        workspaceId,
+        actorId: user.id,
+        action: "workspace.member_removed",
+        metadata: {
+          memberId: target.id,
+          userId: target.userId,
+          memberName: target.user.fullName ?? target.user.email,
+          removedRole: target.role,
+        },
+      },
+    });
     return jsonOk({ removed: true });
   } catch (error) {
     return jsonErrorFromUnknown(error, "Failed to remove member.");

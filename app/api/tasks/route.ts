@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getApiUser } from "@/lib/auth/session";
 import { requireWorkspaceRole, WORKSPACE_TASK_EDITOR_ROLES } from "@/lib/auth/authorization";
 import { jsonError, jsonErrorFromUnknown, jsonOk } from "@/lib/http";
+import { buildCursorPage, parseCursorPagination } from "@/lib/pagination";
 import { enforceRateLimit, RateLimitPresets } from "@/lib/rate-limit";
 import { createTaskSchema } from "@/lib/validation/task";
 
@@ -14,8 +15,7 @@ export async function GET(request: Request) {
     const status   = url.searchParams.get("status")   || undefined;
     const priority = url.searchParams.get("priority") || undefined;
     const search   = url.searchParams.get("search")   || undefined;
-    const cursor   = url.searchParams.get("cursor")   || undefined; // cursor-based pagination
-    const limit    = Math.min(Number(url.searchParams.get("limit") || 25), 100);
+    const { cursor, limit } = parseCursorPagination(url, { defaultLimit: 25, maxLimit: 100 });
 
     const where = {
       project: {
@@ -45,16 +45,12 @@ export async function GET(request: Request) {
         assignee: true,
         comments: { select: { id: true } },
       },
-      orderBy: [{ createdAt: "desc" }],
-      take:   limit + 1,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
 
-    const hasMore   = tasks.length > limit;
-    const items     = hasMore ? tasks.slice(0, limit) : tasks;
-    const nextCursor = hasMore ? items[items.length - 1].id : null;
-
-    return jsonOk({ tasks: items, nextCursor, hasMore });
+    return jsonOk(buildCursorPage(tasks, limit));
   } catch (error) {
     return jsonErrorFromUnknown(error, "Failed to fetch tasks.");
   }
